@@ -25,7 +25,7 @@ export async function loginHandler(req: Request, res: any) {
         .digest("hex");
 
     let [result] = (await connectPool.query(
-        "SELECT `id` FROM `account` WHERE `user_id`=? AND `user_pw`=?",
+        "SELECT `id`, `nickname` FROM `account` WHERE `user_id`=? AND `user_pw`=?",
         [fetchedID, fetchedPW]
     )) as mysql.RowDataPacket[];
 
@@ -37,9 +37,13 @@ export async function loginHandler(req: Request, res: any) {
     }
 
     let id: string = result[0].id;
+    let nickname = result[0].nickname;
+
+    const accessToken = await generateAccessToken(id);
 
     return res.status(200).json({
-        token: await generateAccessToken(id),
+        token: accessToken,
+        nickname: nickname,
         success: true,
     });
 }
@@ -105,44 +109,42 @@ export async function joinHandler(req: Request, res: any) {
     });
 }
 
-export async function memberInfoHandler(req: Request, res: any) {
+export async function getUserNickname(req: Request, res: any) {
     let nickname: string = res.locals.account?.nickname ?? "";
 
-    let userInfo = await auth(req);
-
-    if (userInfo == null) {
-        return;
+    if (nickname == "") {
+        return res.status(401).json({ success: false });
     }
 
     return res.status(200).json({
-        nickname: userInfo.nickname,
+        nickname: nickname,
         success: true,
     });
 }
 
-async function auth(req: Request) {
-    let fetchedToken = req.headers["authorization"];
+// async function auth(req: Request) {
+//     let fetchedToken = req.headers["authorization"];
 
-    if (fetchedToken == null) {
-        return null;
-    }
+//     if (fetchedToken == null) {
+//         return null;
+//     }
 
-    let [fetchedTokenID] = (await connectPool.query(
-        "SELECT * FROM `token` WHERE `token`=?",
-        [fetchedToken]
-    )) as mysql.RowDataPacket[];
+//     let [fetchedTokenID] = (await connectPool.query(
+//         "SELECT * FROM `access_token` WHERE `token`=?",
+//         [fetchedToken]
+//     )) as mysql.RowDataPacket[];
 
-    if (fetchedTokenID.length == 0) {
-        return null;
-    }
+//     if (fetchedTokenID.length == 0) {
+//         return null;
+//     }
 
-    let result = await getAccount(fetchedTokenID[0].account_id);
+//     let result = await getAccount(fetchedTokenID[0].account_id);
 
-    if (result == null) {
-        return null;
-    }
-    return result;
-}
+//     if (result == null) {
+//         return null;
+//     }
+//     return result;
+// }
 
 async function getAccount(accountID: number) {
     let [result] = (await connectPool.query(
@@ -156,3 +158,12 @@ async function getAccount(accountID: number) {
 
     return result[0];
 }
+
+// export async function  checkStatus(req: Request, res: any) {
+//     const token = req.cookies.accessToken;
+
+//     if (!token) {
+//         return res.status(401).json({success: false})
+//     }
+
+// }
