@@ -1,6 +1,6 @@
 import { connectPool } from "./db";
 import { ERROR_DB_INVALID } from "../utils/errorMessage";
-import { getUserInfo } from "./userService";
+import { getUserInfo } from "../utils/user";
 
 export default async function middleware(req: any, res: any, next: () => void) {
     if (connectPool == null) {
