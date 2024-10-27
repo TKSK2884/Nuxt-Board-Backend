@@ -109,15 +109,20 @@ export async function joinHandler(req: Request, res: any) {
     });
 }
 
-export async function getUserNickname(req: Request, res: any) {
+export async function getUserInfo(req: Request, res: any) {
     let nickname: string = res.locals.account?.nickname ?? "";
+    let id: string = res.localse.account.id ?? "";
 
-    if (nickname == "") {
-        return res.status(401).json({ success: false });
+    if (nickname == "" || id == "") {
+        return res.status(400).json({
+            errorCode: "",
+            error: "nickname or id is missing",
+        });
     }
 
     return res.status(200).json({
         nickname: nickname,
+        id: id,
         success: true,
     });
 }

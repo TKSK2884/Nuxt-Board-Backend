@@ -17,7 +17,7 @@ export async function generateAccessToken(fetchedID: string): Promise<string> {
     }
 
     await connectPool.query(
-        "INSERT INTO `token` (`account_id`, `token`) VALUES (?,?)",
+        "INSERT INTO `access_token` (`account_id`, `token`) VALUES (?,?)",
         [accountID, randomizedToken]
     );
 
