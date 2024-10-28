@@ -3,19 +3,35 @@ import cors from "cors";
 import https from "https";
 import mysql from "mysql2/promise";
 import init from "./service/db";
-import { getUserInfo, joinHandler, loginHandler } from "./service/member";
+import {
+    getUserInfo,
+    joinHandler,
+    loginHandler,
+    logoutHandler,
+} from "./service/member";
 import middleware from "./service/middleware";
+import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 const port = 8455;
 
-app.use(cors());
+app.use(
+    cors({
+        origin: process.env.ORIGIN || "http://localhost:3000",
+        credentials: true,
+    })
+);
 app.use(express.json());
+app.use(cookieParser());
 app.use(middleware);
 
 init();
 
 app.post("/member/login", loginHandler);
+app.post("/member/logout", logoutHandler);
 
 app.post("/member/join", joinHandler);
 

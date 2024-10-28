@@ -1,10 +1,14 @@
+import { connectPool } from "./db";
 import { Request } from "express";
 import crypto from "crypto";
 import mysql from "mysql2/promise";
-import { connectPool } from "./db";
+import jwt from "jsonwebtoken";
 import { generateAccessToken } from "../utils/token";
+import { UserInfo } from "../structure/type";
 
 const mySalt: string | undefined = process.env.SALT;
+
+const JWT_SECRET: string = process.env.JWT_SECRET ?? "";
 
 export async function loginHandler(req: Request, res: any) {
     let fetchedBody: any = req.body;
@@ -37,15 +41,30 @@ export async function loginHandler(req: Request, res: any) {
     }
 
     let id: string = result[0].id;
-    let nickname = result[0].nickname;
+    let nickname: string = result[0].nickname;
 
-    const accessToken = await generateAccessToken(id);
+    // const accessToken: string = await generateAccessToken(id);
+
+    const token: string = jwt.sign({ id: id, nickname: nickname }, JWT_SECRET, {
+        expiresIn: "1h",
+    });
+
+    res.cookie("accessToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 3600000, // 1시간
+    });
 
     return res.status(200).json({
-        token: accessToken,
-        nickname: nickname,
+        data: { id: id, nickname: nickname },
         success: true,
     });
+}
+
+export async function logoutHandler(req: Request, res: any) {
+    res.clearCookie("accessToken");
+
+    return res.status(200).json({ success: true });
 }
 
 export async function joinHandler(req: Request, res: any) {
@@ -109,20 +128,24 @@ export async function joinHandler(req: Request, res: any) {
     });
 }
 
-export async function getUserInfo(req: Request, res: any) {
-    let nickname: string = res.locals.account?.nickname ?? "";
-    let id: string = res.localse.account.id ?? "";
+export async function getUserInfo(req: any, res: any) {
+    let id: string = req.user?.id ?? "";
+    let nickname: string = req.user?.nickname ?? "";
 
-    if (nickname == "" || id == "") {
+    if (id == "" || nickname == "") {
         return res.status(400).json({
             errorCode: "",
-            error: "nickname or id is missing",
+            error: "id or nickname is missing",
         });
     }
 
-    return res.status(200).json({
-        nickname: nickname,
+    const userInfo: UserInfo = {
         id: id,
+        nickname: nickname,
+    };
+
+    return res.status(200).json({
+        data: userInfo,
         success: true,
     });
 }
