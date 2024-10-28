@@ -1,9 +1,10 @@
 import mysql from "mysql2/promise";
 import { connectPool } from "../service/db";
+import { UserInfo } from "../structure/type";
 
 export async function getUserInfo(
     accessToken: string
-): Promise<{ nickname: string; id: string } | null> {
+): Promise<UserInfo | null> {
     // get accountID And Nickname from access_token
 
     if (accessToken == "") {
@@ -21,7 +22,7 @@ export async function getUserInfo(
         return null;
     }
 
-    let userInfo: { nickname: string; id: string } = {
+    let userInfo: UserInfo = {
         id: result[0].id ?? "",
         nickname: result[0].nickname ?? "",
     };
