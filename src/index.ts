@@ -3,6 +3,8 @@ import cors from "cors";
 import https from "https";
 import mysql from "mysql2/promise";
 import init from "./service/db";
+import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
 import {
     getUserInfo,
     joinHandler,
@@ -10,8 +12,7 @@ import {
     logoutHandler,
 } from "./service/member";
 import middleware from "./service/middleware";
-import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
+import { boardHandler, writePostHandler } from "./service/board";
 
 dotenv.config();
 
@@ -36,6 +37,9 @@ app.post("/member/logout", logoutHandler);
 app.post("/member/join", joinHandler);
 
 app.get("/member/info", getUserInfo);
+
+app.post("/write", writePostHandler);
+app.get("/board", boardHandler);
 
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`);
