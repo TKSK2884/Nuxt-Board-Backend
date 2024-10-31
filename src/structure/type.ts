@@ -7,7 +7,7 @@ export interface BoardResult {
     id: number;
     title: string;
     content: string;
-    writer_id: string;
+    writer_id: number;
     written_time: string;
     views: number;
     likes: number;
@@ -21,4 +21,15 @@ export interface BoardItem {
     content: string;
     written_time: string;
     category_order: number;
+    views: number;
+    likes: number;
+}
+
+export interface PostItem {
+    title: string;
+    writer: string;
+    likes: number;
+    views: number;
+    date: string;
+    content: string;
 }

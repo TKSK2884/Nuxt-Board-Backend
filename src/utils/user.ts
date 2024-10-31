@@ -29,6 +29,21 @@ export async function getUserInfo(
     return userInfo;
 }
 
+export async function getAccountInfo(
+    user_id: number
+): Promise<UserInfo | null> {
+    let [result] = (await connectPool.query(
+        "SELECT `id`, `nickname` FROM `account` WHERE `id`=?",
+        [user_id]
+    )) as mysql.RowDataPacket[];
+
+    if (result.length == 0) {
+        return null;
+    }
+
+    return result[0];
+}
+
 export async function searchAccountID(userId: string): Promise<string> {
     let linkedID: string = await searchLinkedID(userId);
     // Search linkedID -> Search accountID And return accountID
