@@ -30,7 +30,7 @@ export async function getUserInfo(
 }
 
 export async function getAccountInfo(
-    user_id: string
+    user_id: number
 ): Promise<UserInfo | null> {
     let [result] = (await connectPool.query(
         "SELECT `id`, `nickname` FROM `account` WHERE `id`=?",
