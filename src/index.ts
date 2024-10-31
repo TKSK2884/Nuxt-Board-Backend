@@ -12,7 +12,11 @@ import {
     logoutHandler,
 } from "./service/member";
 import middleware from "./service/middleware";
-import { boardHandler, writePostHandler } from "./service/board";
+import {
+    boardHandler,
+    readPostHandler,
+    writePostHandler,
+} from "./service/board";
 
 dotenv.config();
 
@@ -39,6 +43,7 @@ app.post("/member/join", joinHandler);
 app.get("/member/info", getUserInfo);
 
 app.post("/write", writePostHandler);
+app.get("/read", readPostHandler);
 app.get("/board", boardHandler);
 
 app.listen(port, () => {
