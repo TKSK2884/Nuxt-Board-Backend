@@ -1,7 +1,8 @@
-import { BoardItem, BoardResult } from "../structure/type";
+import { BoardItem, BoardResult, PostItem } from "../structure/type";
 import { getAccountInfo } from "../utils/user";
 import { connectPool } from "./db";
 import mysql from "mysql2/promise";
+import sanitizeHtml from "sanitize-html";
 
 export async function writePostHandler(req: Request, res: any) {
     const fetchedBody: any = req.body;
@@ -23,6 +24,16 @@ export async function writePostHandler(req: Request, res: any) {
         });
     }
 
+    const cleanContent = sanitizeHtml(fetchedContent, {
+        allowedTags: ["b", "i", "em", "strong", "a", "p"],
+        allowedAttributes: {
+            a: ["href"],
+            img: ["src", "alt"],
+            "*": ["data-indent"],
+        },
+        allowedSchemes: ["http", "https"],
+    });
+
     const [result] = (await connectPool.query(
         "SELECT IFNULL(MAX(category_order), 0) + 1 AS next_order FROM `board` WHERE `category` = ?",
         [fetchedCategory]
@@ -32,18 +43,59 @@ export async function writePostHandler(req: Request, res: any) {
 
     await connectPool.query(
         "INSERT INTO `board` (`title`, `content`, `writer_id`, `category`, `category_order`) VALUES (?,?,?,?,?)",
-        [
-            fetchedTitle,
-            fetchedContent,
-            fetchedWriter,
-            fetchedCategory,
-            nextOrder,
-        ]
+        [fetchedTitle, cleanContent, fetchedWriter, fetchedCategory, nextOrder]
     );
 
     return res.status(200).json({
         success: true,
     });
+}
+
+export async function readPostHandler(req: any, res: any) {
+    let fetchedID = req.query.id ?? "";
+
+    if (fetchedID === "") {
+        return res.status(400).json({
+            errorCode: "",
+            error: "ID is missing",
+        });
+    }
+
+    let [result] = (await connectPool.query(
+        "SELECT * FROM `board` WHERE `id`=?",
+        [fetchedID]
+    )) as mysql.RowDataPacket[];
+
+    if (result.length == 0) {
+        return res.status(404).json({
+            errorCode: "",
+            error: "Result Not Found",
+        });
+    }
+
+    let contentInfo: BoardResult = result[0];
+
+    let fetchedUserId: number = contentInfo.writer_id;
+
+    let userInfo = await getAccountInfo(fetchedUserId);
+
+    if (userInfo == null) {
+        return res.status(404).json({
+            errorCode: "",
+            error: "Result Not Found",
+        });
+    }
+
+    const postItem: PostItem = {
+        title: contentInfo.title,
+        writer: userInfo.nickname,
+        likes: contentInfo.likes,
+        views: contentInfo.views,
+        date: contentInfo.written_time,
+        content: contentInfo.content,
+    };
+
+    return res.status(200).json({ data: postItem, success: true });
 }
 
 export async function boardHandler(req: any, res: any) {
@@ -103,6 +155,8 @@ export async function boardHandler(req: any, res: any) {
             content: result[i].content,
             written_time: result[i].written_time,
             category_order: result[i].category_order,
+            views: result[i].views,
+            likes: result[i].likes,
         });
     }
 
