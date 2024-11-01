@@ -15,6 +15,7 @@ import middleware from "./service/middleware";
 import {
     boardHandler,
     readPostHandler,
+    updatePostHandler,
     writePostHandler,
 } from "./service/board";
 
@@ -43,6 +44,7 @@ app.post("/member/join", joinHandler);
 app.get("/member/info", getUserInfo);
 
 app.post("/write", writePostHandler);
+app.post("/update", updatePostHandler);
 app.get("/read", readPostHandler);
 app.get("/board", boardHandler);
 
