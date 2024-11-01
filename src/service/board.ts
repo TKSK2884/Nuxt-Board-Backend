@@ -51,6 +51,44 @@ export async function writePostHandler(req: Request, res: any) {
     });
 }
 
+export async function updatePostHandler(req: Request, res: any) {
+    const fetchedBody: any = req.body;
+
+    const fetchedId: string = fetchedBody.id ?? "";
+    const fetchedNewTitle: string = fetchedBody.title ?? "";
+    const fetchedNewContent: string = fetchedBody.content ?? "";
+
+    if (
+        fetchedId === "" ||
+        fetchedNewTitle === "" ||
+        fetchedNewContent === ""
+    ) {
+        return res.status(400).json({
+            errorCode: "",
+            error: "Missing Value",
+        });
+    }
+
+    const cleanContent = sanitizeHtml(fetchedNewContent, {
+        allowedTags: ["b", "i", "em", "strong", "a", "p"],
+        allowedAttributes: {
+            a: ["href"],
+            img: ["src", "alt"],
+            "*": ["data-indent"],
+        },
+        allowedSchemes: ["http", "https"],
+    });
+
+    await connectPool.query(
+        "UPDATE `board` SET `title`= ?, `content` = ? WHERE `id` = ?",
+        [fetchedNewTitle, cleanContent, fetchedId]
+    );
+
+    return res.status(200).json({
+        success: true,
+    });
+}
+
 export async function readPostHandler(req: any, res: any) {
     let fetchedID = req.query.id ?? "";
 
@@ -87,7 +125,9 @@ export async function readPostHandler(req: any, res: any) {
     }
 
     const postItem: PostItem = {
+        id: contentInfo.id,
         title: contentInfo.title,
+        writer_id: contentInfo.writer_id,
         writer: userInfo.nickname,
         likes: contentInfo.likes,
         views: contentInfo.views,

@@ -26,7 +26,9 @@ export interface BoardItem {
 }
 
 export interface PostItem {
+    id: number;
     title: string;
+    writer_id: number;
     writer: string;
     likes: number;
     views: number;
