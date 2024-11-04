@@ -14,6 +14,7 @@ import {
 import middleware from "./service/middleware";
 import {
     boardHandler,
+    createBoardHandler,
     readPostHandler,
     updatePostHandler,
     writePostHandler,
@@ -47,6 +48,7 @@ app.post("/write", writePostHandler);
 app.post("/update", updatePostHandler);
 app.get("/read", readPostHandler);
 app.get("/board", boardHandler);
+app.post("/create", createBoardHandler);
 
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`);
