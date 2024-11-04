@@ -229,3 +229,39 @@ export async function boardHandler(req: any, res: any) {
         success: true,
     });
 }
+
+export async function createBoardHandler(req: Request, res: any) {
+    const fetchedBody: any = req.body;
+
+    const fetchedTitle: string = fetchedBody.title ?? "";
+    const fetchedDesc: string = fetchedBody.desc ?? "";
+    const fetchedSlug: string = fetchedBody.slug ?? "";
+
+    if (fetchedTitle === "" || fetchedDesc === "" || fetchedSlug === "") {
+        return res.status(400).json({
+            errorCode: "",
+            error: "Missing Value",
+        });
+    }
+
+    const [result] = (await connectPool.query(
+        "SELECT * FROM `board_category` WHERE `title` = ? OR `slug` = ?",
+        [fetchedTitle, fetchedSlug]
+    )) as mysql.RowDataPacket[];
+
+    if (result.length > 0) {
+        return res.status(400).json({
+            errorCode: "",
+            error: "duplicate title or slug",
+        });
+    }
+
+    await connectPool.query(
+        "INSERT INTO `board_category` (`title`, `description`, `slug`) VALUES (?,?,?)",
+        [fetchedTitle, fetchedDesc, fetchedSlug]
+    );
+
+    return res.status(200).json({
+        success: true,
+    });
+}
