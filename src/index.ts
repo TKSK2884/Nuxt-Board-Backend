@@ -13,6 +13,7 @@ import {
 } from "./service/member";
 import middleware from "./service/middleware";
 import {
+    boardCategoryHandler,
     boardHandler,
     createBoardHandler,
     readPostHandler,
@@ -48,6 +49,7 @@ app.post("/write", writePostHandler);
 app.post("/update", updatePostHandler);
 app.get("/read", readPostHandler);
 app.get("/board", boardHandler);
+app.get("/board/category", boardCategoryHandler);
 app.post("/create", createBoardHandler);
 
 app.listen(port, () => {
