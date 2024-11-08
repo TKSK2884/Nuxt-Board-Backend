@@ -15,6 +15,7 @@ import middleware from "./service/middleware";
 import {
     boardCategoryHandler,
     boardHandler,
+    boardInfoHandler,
     createBoardHandler,
     readPostHandler,
     updatePostHandler,
@@ -50,6 +51,7 @@ app.post("/update", updatePostHandler);
 app.get("/read", readPostHandler);
 app.get("/board", boardHandler);
 app.get("/board/category", boardCategoryHandler);
+app.get("/board/info", boardInfoHandler);
 app.post("/create", createBoardHandler);
 
 app.listen(port, () => {
