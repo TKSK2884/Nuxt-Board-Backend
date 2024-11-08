@@ -131,7 +131,7 @@ export async function readPostHandler(req: any, res: any) {
         writer: userInfo.nickname,
         likes: contentInfo.likes,
         views: contentInfo.views,
-        date: contentInfo.written_time,
+        written_time: contentInfo.written_time,
         content: contentInfo.content,
     };
 
