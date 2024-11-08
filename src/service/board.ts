@@ -131,11 +131,16 @@ export async function readPostHandler(req: any, res: any) {
         writer: userInfo.nickname,
         likes: contentInfo.likes,
         views: contentInfo.views,
-        date: contentInfo.written_time,
+        written_time: contentInfo.written_time,
         content: contentInfo.content,
     };
 
-    return res.status(200).json({ data: postItem, success: true });
+    return res.status(200).json({
+        data: {
+            post: postItem,
+        },
+        success: true,
+    });
 }
 
 export async function boardHandler(req: any, res: any) {
@@ -174,8 +179,11 @@ export async function boardHandler(req: any, res: any) {
 
     if (result.length == 0) {
         return res.status(200).json({
-            total: 0,
-            array: [],
+            data: {
+                total: 0,
+                array: [],
+            },
+            success: true,
         });
     }
 
@@ -297,6 +305,29 @@ export async function boardCategoryHandler(req: Request, res: any) {
 
     return res.status(200).json({
         data: data,
+        success: true,
+    });
+}
+
+export async function boardInfoHandler(req: any, res: any) {
+    let fetchedCategory: string = req.query.category ?? "";
+
+    let [board] = (await connectPool.query(
+        "SELECT * FROM `board_category` WHERE `slug`=?",
+        [fetchedCategory]
+    )) as mysql.RowDataPacket[];
+
+    if (board.length == 0) {
+        return res.status(400).json({
+            errorCode: "",
+            error: "Result Not found",
+        });
+    }
+
+    let boardInfo = board[0];
+
+    return res.status(200).json({
+        data: boardInfo,
         success: true,
     });
 }
