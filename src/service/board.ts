@@ -99,6 +99,11 @@ export async function readPostHandler(req: any, res: any) {
         });
     }
 
+    await connectPool.query(
+        "UPDATE `board` SET `views` = `views` + 1 WHERE `id` = ?",
+        [fetchedID]
+    );
+
     let [result] = (await connectPool.query(
         "SELECT * FROM `board` WHERE `id`=?",
         [fetchedID]
