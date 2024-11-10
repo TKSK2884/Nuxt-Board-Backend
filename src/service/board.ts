@@ -99,6 +99,11 @@ export async function readPostHandler(req: any, res: any) {
         });
     }
 
+    await connectPool.query(
+        "UPDATE `board` SET `views` = `views` + 1 WHERE `id` = ?",
+        [fetchedID]
+    );
+
     let [result] = (await connectPool.query(
         "SELECT * FROM `board` WHERE `id`=?",
         [fetchedID]
@@ -131,6 +136,7 @@ export async function readPostHandler(req: any, res: any) {
         writer: userInfo.nickname,
         likes: contentInfo.likes,
         views: contentInfo.views,
+        dislikes: contentInfo.dislikes,
         written_time: contentInfo.written_time,
         content: contentInfo.content,
     };
@@ -139,6 +145,88 @@ export async function readPostHandler(req: any, res: any) {
         data: {
             post: postItem,
         },
+        success: true,
+    });
+}
+
+export async function addLikeHandler(req: Request, res: any) {
+    const fetchedBody: any = req.body;
+
+    const fetchedPostId: string = fetchedBody.postId ?? "";
+    const fetchedUserId: string = fetchedBody.userId ?? "";
+
+    if (fetchedPostId == "" || fetchedUserId == "") {
+        return res.status(400).json({
+            errorCode: "",
+            error: "ID is missing",
+        });
+    }
+
+    const [checkResult] = (await connectPool.query(
+        "SELECT * FROM `post_likes` WHERE `post_id` = ? AND `user_id` = ?",
+        [fetchedPostId, fetchedUserId]
+    )) as mysql.RowDataPacket[];
+
+    if (checkResult.length > 0) {
+        return res.status(200).json({
+            message: "이미 추천하셨습니다.",
+            success: false,
+        });
+    }
+
+    await connectPool.query(
+        "UPDATE `board` SET `likes` = `likes` + 1 WHERE `id` = ?",
+        [fetchedPostId]
+    );
+
+    await connectPool.query(
+        "INSERT INTO `post_likes` (`post_id`, `user_id`) VALUES (?, ?)",
+        [fetchedPostId, fetchedUserId]
+    );
+
+    return res.status(200).json({
+        message: "추천되었습니다.",
+        success: true,
+    });
+}
+
+export async function addDisLikeHandler(req: Request, res: any) {
+    const fetchedBody: any = req.body;
+
+    const fetchedPostId: string = fetchedBody.postId ?? "";
+    const fetchedUserId: string = fetchedBody.userId ?? "";
+
+    if (fetchedPostId == "" || fetchedUserId == "") {
+        return res.status(400).json({
+            errorCode: "",
+            error: "ID is missing",
+        });
+    }
+
+    const [checkResult] = (await connectPool.query(
+        "SELECT * FROM `post_dislikes` WHERE `post_id` = ? AND `user_id` = ?",
+        [fetchedPostId, fetchedUserId]
+    )) as mysql.RowDataPacket[];
+
+    if (checkResult.length > 0) {
+        return res.status(200).json({
+            message: "이미 비추천하셨습니다.",
+            success: false,
+        });
+    }
+
+    await connectPool.query(
+        "UPDATE `board` SET `dislikes` = `dislikes` + 1 WHERE `id` = ?",
+        [fetchedPostId]
+    );
+
+    await connectPool.query(
+        "INSERT INTO `post_dislikes` (`post_id`, `user_id`) VALUES (?, ?)",
+        [fetchedPostId, fetchedUserId]
+    );
+
+    return res.status(200).json({
+        message: "비추천되었습니다.",
         success: true,
     });
 }

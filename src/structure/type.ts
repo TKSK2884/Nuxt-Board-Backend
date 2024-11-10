@@ -11,6 +11,7 @@ export interface BoardResult {
     written_time: string;
     views: number;
     likes: number;
+    dislikes: number;
     category_order: number;
 }
 
@@ -31,6 +32,7 @@ export interface PostItem {
     writer_id: number;
     writer: string;
     likes: number;
+    dislikes: number;
     views: number;
     written_time: string;
     content: string;

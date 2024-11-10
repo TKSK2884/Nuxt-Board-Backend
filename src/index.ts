@@ -13,6 +13,8 @@ import {
 } from "./service/member";
 import middleware from "./service/middleware";
 import {
+    addDisLikeHandler,
+    addLikeHandler,
     boardCategoryHandler,
     boardHandler,
     boardInfoHandler,
@@ -48,7 +50,11 @@ app.get("/member/info", getUserInfo);
 
 app.post("/write", writePostHandler);
 app.post("/update", updatePostHandler);
+
 app.get("/read", readPostHandler);
+app.post("/like", addLikeHandler);
+app.post("/dislike", addDisLikeHandler);
+
 app.get("/board", boardHandler);
 app.get("/board/category", boardCategoryHandler);
 app.get("/board/info", boardInfoHandler);
