@@ -1,8 +1,8 @@
 import { BoardItem, BoardResult, PostItem } from "../structure/type";
+import { sanitizeText } from "../utils/string";
 import { getAccountInfo } from "../utils/user";
 import { connectPool } from "./db";
 import mysql from "mysql2/promise";
-import sanitizeHtml from "sanitize-html";
 
 export async function writePostHandler(req: Request, res: any) {
     const fetchedBody: any = req.body;
@@ -24,15 +24,7 @@ export async function writePostHandler(req: Request, res: any) {
         });
     }
 
-    const cleanContent = sanitizeHtml(fetchedContent, {
-        allowedTags: ["b", "i", "em", "strong", "a", "p"],
-        allowedAttributes: {
-            a: ["href"],
-            img: ["src", "alt"],
-            "*": ["data-indent"],
-        },
-        allowedSchemes: ["http", "https"],
-    });
+    const cleanContent = sanitizeText(fetchedContent);
 
     const [result] = (await connectPool.query(
         "SELECT IFNULL(MAX(category_order), 0) + 1 AS next_order FROM `board` WHERE `category` = ?",
@@ -69,15 +61,7 @@ export async function updatePostHandler(req: Request, res: any) {
         });
     }
 
-    const cleanContent = sanitizeHtml(fetchedNewContent, {
-        allowedTags: ["b", "i", "em", "strong", "a", "p"],
-        allowedAttributes: {
-            a: ["href"],
-            img: ["src", "alt"],
-            "*": ["data-indent"],
-        },
-        allowedSchemes: ["http", "https"],
-    });
+    const cleanContent = sanitizeText(fetchedNewContent);
 
     await connectPool.query(
         "UPDATE `board` SET `title`= ?, `content` = ? WHERE `id` = ?",
