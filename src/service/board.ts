@@ -244,6 +244,19 @@ export async function boardHandler(req: any, res: any) {
         });
     }
 
+    let [slug] = (await connectPool.query(
+        "SELECT `slug` FROM `board_category` WHERE `slug`= ? ",
+        [fetchedCategory]
+    )) as mysql.RowDataPacket[];
+
+    const isSlug: string = slug[0]?.slug ?? "";
+
+    if (isSlug == "") {
+        return res.status(200).json({
+            success: false,
+        });
+    }
+
     let [result] = (await connectPool.query(
         "SELECT * FROM `board` WHERE `category`=? ORDER BY `category_order` DESC LIMIT ?,?",
         [fetchedCategory, fetchedPageNumber, fetchedPageLimit]
@@ -396,7 +409,7 @@ export async function boardInfoHandler(req: any, res: any) {
         });
     }
 
-    let boardInfo = board[0];
+    const boardInfo = board[0];
 
     return res.status(200).json({
         data: boardInfo,
