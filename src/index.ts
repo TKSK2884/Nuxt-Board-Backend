@@ -58,8 +58,7 @@ app.post("/dislike", addDisLikeHandler);
 app.get("/board", boardHandler);
 app.get("/board/category", boardCategoryHandler);
 app.get("/board/info", boardInfoHandler);
-app.post("/create", createBoardHandler);
-
+app.post("/board/create", createBoardHandler);
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`);
 });
