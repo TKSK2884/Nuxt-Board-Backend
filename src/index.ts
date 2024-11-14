@@ -23,6 +23,11 @@ import {
     updatePostHandler,
     writePostHandler,
 } from "./service/board";
+import {
+    createCommentHandler,
+    getCommentsHandler,
+    updateCommentHandler,
+} from "./service/comment";
 
 dotenv.config();
 
@@ -59,6 +64,10 @@ app.get("/board", boardHandler);
 app.get("/board/category", boardCategoryHandler);
 app.get("/board/info", boardInfoHandler);
 app.post("/board/create", createBoardHandler);
+app.post("/comment/create", createCommentHandler);
+app.get("/comments", getCommentsHandler);
+app.post("/comment/update", updateCommentHandler);
+
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`);
 });
