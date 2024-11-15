@@ -25,6 +25,7 @@ import {
 } from "./service/board";
 import {
     createCommentHandler,
+    deleteComment,
     getCommentsHandler,
     updateCommentHandler,
 } from "./service/comment";
@@ -67,6 +68,7 @@ app.post("/board/create", createBoardHandler);
 app.post("/comment/create", createCommentHandler);
 app.get("/comments", getCommentsHandler);
 app.post("/comment/update", updateCommentHandler);
+app.post("/comment/delete", deleteComment);
 
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`);
