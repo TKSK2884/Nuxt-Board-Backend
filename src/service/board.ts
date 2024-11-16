@@ -89,7 +89,7 @@ export async function readPostHandler(req: any, res: any) {
     );
 
     let [result] = (await connectPool.query(
-        "SELECT * FROM `board` WHERE `id`=?",
+        "SELECT * FROM `board` WHERE `id` = ? AND `status` = 0",
         [fetchedID]
     )) as mysql.RowDataPacket[];
 
@@ -258,7 +258,8 @@ export async function boardHandler(req: any, res: any) {
     }
 
     let [result] = (await connectPool.query(
-        "SELECT * FROM `board` WHERE `category`=? ORDER BY `category_order` DESC LIMIT ?,?",
+        "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
+            "ORDER BY `category_order` DESC LIMIT ?, ?",
         [fetchedCategory, fetchedPageNumber, fetchedPageLimit]
     )) as mysql.RowDataPacket[];
 
@@ -301,7 +302,7 @@ export async function boardHandler(req: any, res: any) {
     }
 
     let [total] = (await connectPool.query(
-        "SELECT COUNT(*) AS `count` FROM `board` WHERE `category`=?",
+        "SELECT COUNT(*) AS `count` FROM `board` WHERE `category` = ? AND `status` = 0",
         [fetchedCategory]
     )) as mysql.RowDataPacket[];
 
@@ -375,7 +376,7 @@ export async function boardCategoryHandler(req: Request, res: any) {
 
     for (let i = 0; i < result.length; i++) {
         let [result2] = (await connectPool.query(
-            "SELECT * FROM `board` WHERE `category` = ?" +
+            "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
                 "ORDER BY `category_order` DESC LIMIT 10",
             [result[i].slug]
         )) as mysql.RowDataPacket[];
@@ -415,4 +416,33 @@ export async function boardInfoHandler(req: any, res: any) {
         data: boardInfo,
         success: true,
     });
+}
+
+export async function deletePostHandler(req: Request, res: any) {
+    const fetchedBody: any = req.body;
+
+    const fetchedPostId: string = fetchedBody.postId ?? "";
+
+    if (fetchedPostId == "") {
+        return res.status(400).json({
+            error: "postId is required",
+        });
+    }
+
+    try {
+        await connectPool.query(
+            "UPDATE `board` SET `status` = 1 WHERE `id` = ?",
+            [fetchedPostId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Post deleted successfully",
+        });
+    } catch (error) {
+        console.error("Error deleting post:", error);
+        return res.status(500).json({
+            error: "Failed to delete post due to a server error",
+        });
+    }
 }
