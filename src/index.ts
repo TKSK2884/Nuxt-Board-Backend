@@ -19,6 +19,7 @@ import {
     boardHandler,
     boardInfoHandler,
     createBoardHandler,
+    deletePostHandler,
     readPostHandler,
     updatePostHandler,
     writePostHandler,
@@ -65,6 +66,7 @@ app.get("/board", boardHandler);
 app.get("/board/category", boardCategoryHandler);
 app.get("/board/info", boardInfoHandler);
 app.post("/board/create", createBoardHandler);
+app.post("/board/delete", deletePostHandler);
 app.post("/comment/create", createCommentHandler);
 app.get("/comments", getCommentsHandler);
 app.post("/comment/update", updateCommentHandler);
