@@ -25,6 +25,7 @@ export async function getUserInfo(
     let userInfo: UserInfo = {
         id: result[0].id ?? "",
         nickname: result[0].nickname ?? "",
+        email: result[0].email ?? "",
     };
     return userInfo;
 }
