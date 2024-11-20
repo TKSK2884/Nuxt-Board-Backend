@@ -1,6 +1,7 @@
 export interface UserInfo {
     id: string;
     nickname: string;
+    email: string;
 }
 
 export interface BoardResult {
