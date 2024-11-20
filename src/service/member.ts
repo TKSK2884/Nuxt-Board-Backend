@@ -1,9 +1,8 @@
 import { connectPool } from "./db";
-import { Request } from "express";
+import { Request, Response } from "express";
 import crypto from "crypto";
 import mysql from "mysql2/promise";
 import jwt from "jsonwebtoken";
-import { generateAccessToken } from "../utils/token";
 import { UserInfo } from "../structure/type";
 
 const mySalt: string | undefined = process.env.SALT;
@@ -18,7 +17,6 @@ export async function loginHandler(req: Request, res: any) {
 
     if (fetchedID == "" || fetchedPW == "") {
         return res.status(400).json({
-            errorCode: "",
             error: "ID or password is missing",
         });
     }
@@ -58,7 +56,7 @@ export async function loginHandler(req: Request, res: any) {
     });
 
     return res.status(200).json({
-        data: { id: id, nickname: nickname },
+        data: { id: id, nickname: nickname, email: email },
         success: true,
     });
 }
@@ -84,7 +82,6 @@ export async function joinHandler(req: Request, res: any) {
         fetchedNickname === ""
     ) {
         return res.status(400).json({
-            errorCode: "",
             error: "params missing",
         });
     }
@@ -105,12 +102,10 @@ export async function joinHandler(req: Request, res: any) {
             resultNickname == fetchedNickname
         )
             return res.status(400).json({
-                errorCode: "",
                 error: "ID or Email or nickname already exists",
             });
 
         return res.status(500).json({
-            errorCode: "",
             error: "Bad Request",
         });
     }
@@ -133,10 +128,10 @@ export async function joinHandler(req: Request, res: any) {
 export async function getUserInfo(req: any, res: any) {
     let id: string = req.user?.id ?? "";
     let nickname: string = req.user?.nickname ?? "";
+    let email: string = req.user?.email ?? "";
 
     if (id == "" || nickname == "") {
         return res.status(400).json({
-            errorCode: "",
             error: "id or nickname is missing",
         });
     }
@@ -144,6 +139,7 @@ export async function getUserInfo(req: any, res: any) {
     const userInfo: UserInfo = {
         id: id,
         nickname: nickname,
+        email: email,
     };
 
     return res.status(200).json({
