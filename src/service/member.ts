@@ -152,48 +152,42 @@ export async function getUserInfo(req: any, res: any) {
     });
 }
 
-// async function auth(req: Request) {
-//     let fetchedToken = req.headers["authorization"];
+export async function updateUserInfoHandler(req: Request, res: any) {
+    try {
+        const {
+            id,
+            nickname,
+            email,
+        }: { id: number; nickname: string; email: string } = req.body;
 
-//     if (fetchedToken == null) {
-//         return null;
-//     }
+        if (!id || !nickname || !email) {
+            return res.status(400).json({
+                success: false,
+                error: "ID, nickname, and email are required.",
+            });
+        }
 
-//     let [fetchedTokenID] = (await connectPool.query(
-//         "SELECT * FROM `access_token` WHERE `token`=?",
-//         [fetchedToken]
-//     )) as mysql.RowDataPacket[];
+        const [result] = await connectPool.query<mysql.ResultSetHeader>(
+            "UPDATE `account` SET `nickname` = ?, `email` = ? WHERE `id` = ?",
+            [nickname, email, id]
+        );
 
-//     if (fetchedTokenID.length == 0) {
-//         return null;
-//     }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "User not found or no changes made.",
+            });
+        }
 
-//     let result = await getAccount(fetchedTokenID[0].account_id);
-
-//     if (result == null) {
-//         return null;
-//     }
-//     return result;
-// }
-
-async function getAccount(accountID: number) {
-    let [result] = (await connectPool.query(
-        "SELECT * FROM `account` WHERE `id`=?",
-        [accountID]
-    )) as mysql.RowDataPacket[];
-
-    if (result.length == 0) {
-        return null;
+        return res.status(200).json({
+            success: true,
+            message: "User info updated successfully.",
+        });
+    } catch (error) {
+        console.error("Error updating user info:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error.",
+        });
     }
-
-    return result[0];
 }
-
-// export async function  checkStatus(req: Request, res: any) {
-//     const token = req.cookies.accessToken;
-
-//     if (!token) {
-//         return res.status(401).json({success: false})
-//     }
-
-// }
