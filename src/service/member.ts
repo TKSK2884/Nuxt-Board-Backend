@@ -29,25 +29,27 @@ export async function loginHandler(req: Request, res: any) {
         .digest("hex");
 
     let [result] = (await connectPool.query(
-        "SELECT `id`, `nickname` FROM `account` WHERE `user_id`=? AND `user_pw`=?",
+        "SELECT `id`, `nickname`, `email` FROM `account` WHERE `user_id`=? AND `user_pw`=?",
         [fetchedID, fetchedPW]
     )) as mysql.RowDataPacket[];
 
     if (result.length == 0) {
         return res.status(400).json({
-            errorCode: "",
             error: "ID or password is missing",
         });
     }
 
     let id: string = result[0].id;
     let nickname: string = result[0].nickname;
+    let email: string = result[0].email;
 
-    // const accessToken: string = await generateAccessToken(id);
-
-    const token: string = jwt.sign({ id: id, nickname: nickname }, JWT_SECRET, {
-        expiresIn: "1h",
-    });
+    const token: string = jwt.sign(
+        { id: id, nickname: nickname, email: email },
+        JWT_SECRET,
+        {
+            expiresIn: "1h",
+        }
+    );
 
     res.cookie("accessToken", token, {
         httpOnly: true,
