@@ -10,6 +10,7 @@ import {
     joinHandler,
     loginHandler,
     logoutHandler,
+    updateUserInfoHandler,
 } from "./service/member";
 import middleware from "./service/middleware";
 import {
@@ -50,6 +51,8 @@ init();
 
 app.post("/member/login", loginHandler);
 app.post("/member/logout", logoutHandler);
+
+app.patch("/member/update", updateUserInfoHandler);
 
 app.post("/member/join", joinHandler);
 
