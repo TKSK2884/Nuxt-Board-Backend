@@ -1,7 +1,20 @@
-export interface UserInfo {
+import { Request } from "express";
+
+export interface User {
     id: string;
     nickname: string;
+}
+
+export interface UserInfo extends User {
     email: string;
+}
+
+export interface UserRequest extends Request {
+    user?: User;
+}
+
+export interface RegisterBody extends UserInfo {
+    password: string;
 }
 
 export interface BoardResult {
