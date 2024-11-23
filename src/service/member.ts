@@ -1,64 +1,68 @@
 import { connectPool } from "./db";
-import { Request, Response } from "express";
+import { Request } from "express";
 import crypto from "crypto";
 import mysql from "mysql2/promise";
 import jwt from "jsonwebtoken";
-import { UserInfo } from "../structure/type";
+import { RegisterBody, UserInfo, UserRequest } from "../structure/type";
 
 const mySalt: string | undefined = process.env.SALT;
-
 const JWT_SECRET: string = process.env.JWT_SECRET ?? "";
 
 export async function loginHandler(req: Request, res: any) {
-    let fetchedBody: any = req.body;
+    try {
+        const { id, password }: { id: string; password: string } = req.body;
 
-    let fetchedID: string = fetchedBody?.id ?? "";
-    let fetchedPW: string = fetchedBody?.password ?? "";
-
-    if (fetchedID == "" || fetchedPW == "") {
-        return res.status(400).json({
-            error: "ID or password is missing",
-        });
-    }
-
-    fetchedPW = crypto
-        .createHash("sha256")
-        .update(fetchedPW + mySalt)
-        .digest("hex");
-
-    let [result] = (await connectPool.query(
-        "SELECT `id`, `nickname`, `email` FROM `account` WHERE `user_id`=? AND `user_pw`=?",
-        [fetchedID, fetchedPW]
-    )) as mysql.RowDataPacket[];
-
-    if (result.length == 0) {
-        return res.status(400).json({
-            error: "ID or password is missing",
-        });
-    }
-
-    let id: string = result[0].id;
-    let nickname: string = result[0].nickname;
-    let email: string = result[0].email;
-
-    const token: string = jwt.sign(
-        { id: id, nickname: nickname, email: email },
-        JWT_SECRET,
-        {
-            expiresIn: "1h",
+        if (!id || !password) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid ID or password",
+            });
         }
-    );
 
-    res.cookie("accessToken", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 3600000, // 1시간
-    });
+        const hashedPassword: string = crypto
+            .createHash("sha256")
+            .update(password + mySalt)
+            .digest("hex");
 
-    return res.status(200).json({
-        data: { id: id, nickname: nickname, email: email },
-        success: true,
-    });
+        const [result] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT `id`, `nickname`, `email` FROM `account` WHERE `user_id`=? AND `user_pw`=?",
+            [id, hashedPassword]
+        );
+
+        if (result.length == 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid ID or password",
+            });
+        }
+
+        const user = result[0];
+
+        const token: string = jwt.sign(
+            { id: user.id, nickname: user.nickname, email: user.email },
+            JWT_SECRET,
+            {
+                expiresIn: "1h",
+            }
+        );
+
+        res.cookie("accessToken", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            maxAge: 3600000, // 1시간
+        });
+
+        return res.status(200).json({
+            data: { id: user.id, nickname: user.nickname },
+            success: true,
+        });
+    } catch (error) {
+        console.error("Error in loginHandler:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error",
+        });
+    }
 }
 
 export async function logoutHandler(req: Request, res: any) {
@@ -68,93 +72,105 @@ export async function logoutHandler(req: Request, res: any) {
 }
 
 export async function joinHandler(req: Request, res: any) {
-    let fetchedBody: any = req.body;
+    try {
+        const { id, password, email, nickname }: RegisterBody = req.body;
 
-    let fetchedID: string = fetchedBody?.id ?? "";
-    let fetchedPW: string = fetchedBody?.password ?? "";
-    let fetchedEmail: string = fetchedBody?.email ?? "";
-    let fetchedNickname: string = fetchedBody?.nickname ?? "";
-
-    if (
-        fetchedID === "" ||
-        fetchedPW === "" ||
-        fetchedEmail == "" ||
-        fetchedNickname === ""
-    ) {
-        return res.status(400).json({
-            error: "params missing",
-        });
-    }
-
-    let [result] = (await connectPool.query(
-        "SELECT * FROM `account` WHERE `user_id`=? OR `email`=? OR `nickname`=?",
-        [fetchedID, fetchedEmail, fetchedNickname]
-    )) as mysql.RowDataPacket[];
-
-    if (result.length != 0) {
-        let resultUserID: string = result[0].user_id ?? "";
-        let resultEmail: string = result[0].email ?? "";
-        let resultNickname: string = result[0].nickname ?? "";
-
-        if (
-            resultUserID == fetchedID ||
-            resultEmail == fetchedEmail ||
-            resultNickname == fetchedNickname
-        )
+        if (!id || !password || !email || !nickname) {
             return res.status(400).json({
-                error: "ID or Email or nickname already exists",
+                success: false,
+                error: "ID, password, email and nickname are required",
             });
+        }
 
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid email format",
+            });
+        }
+
+        const [result] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT COUNT(*) AS count FROM `account` WHERE `user_id`=? OR `email`=? OR `nickname`=?",
+            [id, email, nickname]
+        );
+
+        if (result[0].count > 0) {
+            return res.status(400).json({
+                success: false,
+                error: "ID, Email, or Nickname already exists",
+            });
+        }
+
+        const hashedPassword: string = crypto
+            .createHash("sha256")
+            .update(password + mySalt)
+            .digest("hex");
+
+        await connectPool.query(
+            "INSERT INTO `account` (`user_id`, `user_pw`, `email`, `nickname`) VALUES (?, ?, ?, ?)",
+            [id, hashedPassword, email, nickname]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "User registered successfully",
+        });
+    } catch (error) {
+        console.log("Error in registerHandler", error);
         return res.status(500).json({
-            error: "Bad Request",
+            error: "Internal server error",
         });
     }
-
-    fetchedPW = crypto
-        .createHash("sha256")
-        .update(fetchedPW + mySalt)
-        .digest("hex");
-
-    await connectPool.query(
-        "INSERT INTO `account` (`user_id`, `user_pw`, `email`, `nickname`) VALUES (?,?,?,?)",
-        [fetchedID, fetchedPW, fetchedEmail, fetchedNickname]
-    );
-
-    return res.status(200).json({
-        success: true,
-    });
 }
 
-export async function getUserInfo(req: any, res: any) {
-    let id: string = req.user?.id ?? "";
-    let nickname: string = req.user?.nickname ?? "";
-    let email: string = req.user?.email ?? "";
+export async function getUserInfo(req: UserRequest, res: any) {
+    if (!req.user) {
+        return res.status(401).json({
+            success: false,
+            error: "Unauthorized: User information is missing",
+        });
+    }
 
-    if (id == "" || nickname == "") {
+    const { id, nickname } = req.user;
+
+    if (!id || !nickname) {
         return res.status(400).json({
+            success: false,
             error: "id or nickname is missing",
         });
     }
 
-    const userInfo: UserInfo = {
-        id: id,
-        nickname: nickname,
-        email: email,
-    };
+    try {
+        const [result] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT `email` FROM `account` WHERE `id` = ?",
+            [id]
+        );
 
-    return res.status(200).json({
-        data: userInfo,
-        success: true,
-    });
+        if (!result || result.length == 0) {
+            return res.status(404).json({
+                success: false,
+                error: "User not found",
+            });
+        }
+
+        const email: string = result[0].email;
+
+        return res.status(200).json({
+            success: true,
+            data: { id: id, nickname: nickname, email: email },
+        });
+    } catch (error) {
+        console.error("Error fetching email", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error",
+        });
+    }
 }
 
 export async function updateUserInfoHandler(req: Request, res: any) {
     try {
-        const {
-            id,
-            nickname,
-            email,
-        }: { id: number; nickname: string; email: string } = req.body;
+        const { id, nickname, email }: UserInfo = req.body;
 
         if (!id || !nickname || !email) {
             return res.status(400).json({
