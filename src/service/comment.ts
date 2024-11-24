@@ -1,73 +1,115 @@
-import { commentItem } from "../structure/type";
 import { getAccountInfo } from "../utils/user";
 import { connectPool } from "./db";
 import mysql from "mysql2/promise";
+import { Request } from "express";
+import { CommentItem } from "../structure/type";
 
 export async function createCommentHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
+    const {
+        postId,
+        userId,
+        parentCommentId,
+        content,
+    }: {
+        postId: string;
+        userId: string;
+        parentCommentId?: string | null;
+        content: string;
+    } = req.body;
 
-    const fetchedPostId: string = fetchedBody.postId ?? "";
-    const fetchedUserId: string = fetchedBody.userId ?? "";
-    const fetchedParentCommentId: string | null =
-        fetchedBody.parentCommentId ?? null;
-    const fetchedContent: string = fetchedBody.comment ?? "";
-
-    if (fetchedPostId == "" || fetchedUserId == "" || fetchedContent == "") {
+    if (!postId || !userId || !content) {
         return res.status(400).json({
-            errorCode: "",
+            success: false,
             error: "postId, userId, and content are required",
         });
     }
 
-    await connectPool.query(
-        `INSERT INTO comments (
-            post_id, user_id, parent_comment_id, content
-        ) VALUES (?, ?, ?, ?)`,
-        [fetchedPostId, fetchedUserId, fetchedParentCommentId, fetchedContent]
-    );
+    if (content.trim().length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: "Content cannot be empty",
+        });
+    }
 
-    return res.status(201).json({
-        success: true,
-    });
+    try {
+        const [result] = await connectPool.query<mysql.ResultSetHeader>(
+            `INSERT INTO comments (
+                post_id, user_id, parent_comment_id, content
+            ) VALUES (?, ?, ?, ?)`,
+            [postId, userId, parentCommentId || null, content.trim()]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(500).json({
+                success: false,
+                error: "Failed to create comment",
+            });
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: "Comment created successfully",
+        });
+    } catch (error) {
+        console.error("Error creating comment:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Failed to create comment due to a server error",
+        });
+    }
 }
 
 export async function updateCommentHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
-    const fetchedCommentId: string = fetchedBody.commentId ?? "";
-    const fetchedContent: string = fetchedBody.content ?? "";
+    const { commentId, content }: { commentId: number; content: string } =
+        req.body;
 
-    if (fetchedCommentId == "" || fetchedContent == "") {
+    if (!commentId || !content) {
         return res.status(400).json({
             error: "commentId and content are required",
         });
     }
 
-    await connectPool.query(
-        "UPDATE `comments` SET `content` = ? WHERE `id` = ?",
-        [fetchedContent, fetchedCommentId]
-    );
+    try {
+        const [result] = await connectPool.query<mysql.ResultSetHeader>(
+            "UPDATE `comments` SET `content` = ? WHERE `id` = ?",
+            [content, commentId]
+        );
 
-    return res.status(200).json({
-        success: true,
-        message: "Comment updated successfully",
-    });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Comment not found or no changes made",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Comment updated successfully",
+        });
+    } catch (error) {
+        console.error("Error updating comment:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Failed to update comment due to a server error",
+        });
+    }
 }
 
-export async function getCommentsHandler(req: any, res: any) {
-    const fetchedPostId: string = req.query.postId ?? "";
+export async function getCommentsHandler(req: Request, res: any) {
+    const { postId } = req.query;
 
-    if (fetchedPostId == "") {
+    if (!postId) {
         return res.status(400).json({
             error: "postId is required",
         });
     }
 
     try {
-        const [result] = (await connectPool.query(
+        const [result] = await connectPool.query<mysql.RowDataPacket[]>(
             "SELECT * FROM `comments` WHERE `post_id` = ? " +
                 "AND `status` = 0 ORDER BY `created_at` ASC",
-            [fetchedPostId]
-        )) as mysql.RowDataPacket[];
+            [postId]
+        );
 
         if (result.length === 0) {
             return res.status(200).json({
@@ -78,7 +120,7 @@ export async function getCommentsHandler(req: any, res: any) {
 
         // 댓글과 답글을 저장할 맵 및 계층 구조 배열 초기화
         const commentMap: { [key: number]: any } = {};
-        const commentArray: commentItem[] = [];
+        const commentArray: CommentItem[] = [];
 
         // 사용자 정보를 추가하여 댓글 구조화
         for (let i = 0; i < result.length; i++) {
@@ -124,20 +166,27 @@ export async function getCommentsHandler(req: any, res: any) {
 }
 
 export async function deleteComment(req: Request, res: any) {
-    const fetchedBody: any = req.body;
-    const fetchedCommentId: string = fetchedBody.commentId ?? "";
+    const { commentId }: { commentId: number } = req.body;
 
-    if (fetchedCommentId == "") {
+    if (!commentId) {
         return res.status(400).json({
+            success: false,
             error: "commentId is required",
         });
     }
 
     try {
-        await connectPool.query(
+        const [result] = await connectPool.query<mysql.ResultSetHeader>(
             "UPDATE `comments` SET `status` = 1 WHERE `id` = ?",
-            [fetchedCommentId]
+            [commentId]
         );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Comment not found or already deleted",
+            });
+        }
 
         return res.status(200).json({
             success: true,
@@ -146,6 +195,7 @@ export async function deleteComment(req: Request, res: any) {
     } catch (error) {
         console.error("Error marking comment as deleted:", error);
         return res.status(500).json({
+            success: false,
             error: "Failed to mark comment as deleted due to a server error",
         });
     }
