@@ -10,7 +10,7 @@ export interface UserInfo extends User {
 }
 
 export interface UserRequest extends Request {
-    user?: User;
+    user?: { id: string };
 }
 
 export interface RegisterBody extends UserInfo {
