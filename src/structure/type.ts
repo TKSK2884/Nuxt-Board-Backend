@@ -52,7 +52,7 @@ export interface PostItem {
     content: string;
 }
 
-export interface commentItem {
+export interface CommentItem {
     id: number;
     post_id: number;
     user_id: number;
