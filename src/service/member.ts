@@ -38,13 +38,9 @@ export async function loginHandler(req: Request, res: any) {
 
         const user = result[0];
 
-        const token: string = jwt.sign(
-            { id: user.id, nickname: user.nickname, email: user.email },
-            JWT_SECRET,
-            {
-                expiresIn: "1h",
-            }
-        );
+        const token: string = jwt.sign({ id: user.id }, JWT_SECRET, {
+            expiresIn: "1h",
+        });
 
         res.cookie("accessToken", token, {
             httpOnly: true,
@@ -131,18 +127,18 @@ export async function getUserInfo(req: UserRequest, res: any) {
         });
     }
 
-    const { id, nickname } = req.user;
+    const { id } = req.user;
 
-    if (!id || !nickname) {
+    if (!id) {
         return res.status(400).json({
             success: false,
-            error: "id or nickname is missing",
+            error: "id is missing",
         });
     }
 
     try {
         const [result] = await connectPool.query<mysql.RowDataPacket[]>(
-            "SELECT `email` FROM `account` WHERE `id` = ?",
+            "SELECT `email`, `nickname` FROM `account` WHERE `id` = ?",
             [id]
         );
 
@@ -153,6 +149,7 @@ export async function getUserInfo(req: UserRequest, res: any) {
             });
         }
 
+        const nickname: string = result[0].nickname;
         const email: string = result[0].email;
 
         return res.status(200).json({
