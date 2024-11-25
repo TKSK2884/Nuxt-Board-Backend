@@ -1,448 +1,252 @@
-import { BoardItem, BoardResult, PostItem } from "../structure/type";
-import { sanitizeText } from "../utils/string";
+import { BoardItem } from "../structure/type";
 import { getAccountInfo } from "../utils/user";
 import { connectPool } from "./db";
+import { Request } from "express";
 import mysql from "mysql2/promise";
 
-export async function writePostHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
+export async function boardHandler(req: Request, res: any) {
+    try {
+        const { category, page } = req.query;
 
-    const fetchedTitle: string = fetchedBody.title ?? "";
-    const fetchedContent: string = fetchedBody.content ?? "";
-    const fetchedCategory: string = fetchedBody.category ?? "";
-    const fetchedWriter: string = fetchedBody.writer ?? "";
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                error: "Category is missing",
+            });
+        }
 
-    if (
-        fetchedTitle === "" ||
-        fetchedContent === "" ||
-        fetchedCategory === "" ||
-        fetchedWriter === ""
-    ) {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Missing Value",
-        });
-    }
+        let fetchedPageNumber: number;
+        const fetchedPageLimit: number = 10;
 
-    const cleanContent = sanitizeText(fetchedContent);
+        if (page && !isNaN(Number(page))) {
+            fetchedPageNumber = (Number(page) - 1) * fetchedPageLimit;
+        } else {
+            return res.status(400).json({
+                success: false,
+                error: "Page is missing",
+            });
+        }
 
-    const [result] = (await connectPool.query(
-        "SELECT IFNULL(MAX(category_order), 0) + 1 AS next_order FROM `board` WHERE `category` = ?",
-        [fetchedCategory]
-    )) as mysql.RowDataPacket[];
+        if (fetchedPageNumber < 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Page is missing",
+            });
+        }
 
-    const nextOrder = result[0].next_order;
+        const [slug] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT `slug` FROM `board_category` WHERE `slug`= ? ",
+            [category]
+        );
 
-    await connectPool.query(
-        "INSERT INTO `board` (`title`, `content`, `writer_id`, `category`, `category_order`) VALUES (?,?,?,?,?)",
-        [fetchedTitle, cleanContent, fetchedWriter, fetchedCategory, nextOrder]
-    );
+        const isSlug: string = slug[0]?.slug ?? "";
 
-    return res.status(200).json({
-        success: true,
-    });
-}
+        if (isSlug == "") {
+            return res.status(200).json({
+                success: false,
+            });
+        }
 
-export async function updatePostHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
+        const [result] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
+                "ORDER BY `category_order` DESC LIMIT ?, ?",
+            [category, fetchedPageNumber, fetchedPageLimit]
+        );
 
-    const fetchedId: string = fetchedBody.id ?? "";
-    const fetchedNewTitle: string = fetchedBody.title ?? "";
-    const fetchedNewContent: string = fetchedBody.content ?? "";
+        if (result.length == 0) {
+            return res.status(200).json({
+                data: {
+                    total: 0,
+                    array: [],
+                },
+                success: true,
+            });
+        }
 
-    if (
-        fetchedId === "" ||
-        fetchedNewTitle === "" ||
-        fetchedNewContent === ""
-    ) {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Missing Value",
-        });
-    }
+        let resultArray: BoardItem[] = [];
 
-    const cleanContent = sanitizeText(fetchedNewContent);
+        for (let i = 0; i < result.length; i++) {
+            let targetUser = await getAccountInfo(result[i].writer_id);
 
-    await connectPool.query(
-        "UPDATE `board` SET `title`= ?, `content` = ? WHERE `id` = ?",
-        [fetchedNewTitle, cleanContent, fetchedId]
-    );
+            if (targetUser == null) {
+                continue;
+            }
 
-    return res.status(200).json({
-        success: true,
-    });
-}
+            resultArray.push({
+                id: result[i].id,
+                writer: targetUser.nickname,
+                title: result[i].title,
+                content: result[i].content,
+                written_time: result[i].written_time,
+                category_order: result[i].category_order,
+                views: result[i].views,
+                likes: result[i].likes,
+            });
+        }
 
-export async function readPostHandler(req: any, res: any) {
-    let fetchedID = req.query.id ?? "";
+        if (resultArray.length == 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Result NOT found",
+            });
+        }
 
-    if (fetchedID === "") {
-        return res.status(400).json({
-            errorCode: "",
-            error: "ID is missing",
-        });
-    }
+        let [total] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT COUNT(*) AS `count` FROM `board` WHERE `category` = ? AND `status` = 0",
+            [category]
+        );
 
-    await connectPool.query(
-        "UPDATE `board` SET `views` = `views` + 1 WHERE `id` = ?",
-        [fetchedID]
-    );
-
-    let [result] = (await connectPool.query(
-        "SELECT * FROM `board` WHERE `id` = ? AND `status` = 0",
-        [fetchedID]
-    )) as mysql.RowDataPacket[];
-
-    if (result.length == 0) {
-        return res.status(404).json({
-            errorCode: "",
-            error: "Result Not Found",
-        });
-    }
-
-    let contentInfo: BoardResult = result[0];
-
-    let fetchedUserId: number = contentInfo.writer_id;
-
-    let userInfo = await getAccountInfo(fetchedUserId);
-
-    if (userInfo == null) {
-        return res.status(404).json({
-            errorCode: "",
-            error: "Result Not Found",
-        });
-    }
-
-    const postItem: PostItem = {
-        id: contentInfo.id,
-        title: contentInfo.title,
-        writer_id: contentInfo.writer_id,
-        writer: userInfo.nickname,
-        likes: contentInfo.likes,
-        views: contentInfo.views,
-        dislikes: contentInfo.dislikes,
-        written_time: contentInfo.written_time,
-        content: contentInfo.content,
-    };
-
-    return res.status(200).json({
-        data: {
-            post: postItem,
-        },
-        success: true,
-    });
-}
-
-export async function addLikeHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
-
-    const fetchedPostId: string = fetchedBody.postId ?? "";
-    const fetchedUserId: string = fetchedBody.userId ?? "";
-
-    if (fetchedPostId == "" || fetchedUserId == "") {
-        return res.status(400).json({
-            errorCode: "",
-            error: "ID is missing",
-        });
-    }
-
-    const [checkResult] = (await connectPool.query(
-        "SELECT * FROM `post_likes` WHERE `post_id` = ? AND `user_id` = ?",
-        [fetchedPostId, fetchedUserId]
-    )) as mysql.RowDataPacket[];
-
-    if (checkResult.length > 0) {
-        return res.status(200).json({
-            message: "이미 추천하셨습니다.",
-            success: false,
-        });
-    }
-
-    await connectPool.query(
-        "UPDATE `board` SET `likes` = `likes` + 1 WHERE `id` = ?",
-        [fetchedPostId]
-    );
-
-    await connectPool.query(
-        "INSERT INTO `post_likes` (`post_id`, `user_id`) VALUES (?, ?)",
-        [fetchedPostId, fetchedUserId]
-    );
-
-    return res.status(200).json({
-        message: "추천되었습니다.",
-        success: true,
-    });
-}
-
-export async function addDisLikeHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
-
-    const fetchedPostId: string = fetchedBody.postId ?? "";
-    const fetchedUserId: string = fetchedBody.userId ?? "";
-
-    if (fetchedPostId == "" || fetchedUserId == "") {
-        return res.status(400).json({
-            errorCode: "",
-            error: "ID is missing",
-        });
-    }
-
-    const [checkResult] = (await connectPool.query(
-        "SELECT * FROM `post_dislikes` WHERE `post_id` = ? AND `user_id` = ?",
-        [fetchedPostId, fetchedUserId]
-    )) as mysql.RowDataPacket[];
-
-    if (checkResult.length > 0) {
-        return res.status(200).json({
-            message: "이미 비추천하셨습니다.",
-            success: false,
-        });
-    }
-
-    await connectPool.query(
-        "UPDATE `board` SET `dislikes` = `dislikes` + 1 WHERE `id` = ?",
-        [fetchedPostId]
-    );
-
-    await connectPool.query(
-        "INSERT INTO `post_dislikes` (`post_id`, `user_id`) VALUES (?, ?)",
-        [fetchedPostId, fetchedUserId]
-    );
-
-    return res.status(200).json({
-        message: "비추천되었습니다.",
-        success: true,
-    });
-}
-
-export async function boardHandler(req: any, res: any) {
-    let fetchedCategory: string = req.query.category ?? "";
-
-    if (fetchedCategory == "") {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Category is missing",
-        });
-    }
-
-    let fetchedPageNumber: number;
-    let fetchedPageLimit: number = 10;
-
-    if (req.query.page && !isNaN(Number(req.query.page))) {
-        fetchedPageNumber = (Number(req.query.page) - 1) * fetchedPageLimit;
-    } else {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Page is missing",
-        });
-    }
-
-    if (fetchedPageNumber < 0) {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Page is missing",
-        });
-    }
-
-    let [slug] = (await connectPool.query(
-        "SELECT `slug` FROM `board_category` WHERE `slug`= ? ",
-        [fetchedCategory]
-    )) as mysql.RowDataPacket[];
-
-    const isSlug: string = slug[0]?.slug ?? "";
-
-    if (isSlug == "") {
-        return res.status(200).json({
-            success: false,
-        });
-    }
-
-    let [result] = (await connectPool.query(
-        "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
-            "ORDER BY `category_order` DESC LIMIT ?, ?",
-        [fetchedCategory, fetchedPageNumber, fetchedPageLimit]
-    )) as mysql.RowDataPacket[];
-
-    if (result.length == 0) {
+        if (total.length == 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Result Not found",
+            });
+        }
+        const totalValue: number = total[0].count;
         return res.status(200).json({
             data: {
-                total: 0,
-                array: [],
+                total: totalValue,
+                array: resultArray,
             },
             success: true,
         });
-    }
-
-    let resultArray: BoardItem[] = [];
-
-    for (let i = 0; i < result.length; i++) {
-        let targetUser = await getAccountInfo(result[i].writer_id);
-
-        if (targetUser == null) {
-            continue;
-        }
-
-        resultArray.push({
-            id: result[i].id,
-            writer: targetUser.nickname,
-            title: result[i].title,
-            content: result[i].content,
-            written_time: result[i].written_time,
-            category_order: result[i].category_order,
-            views: result[i].views,
-            likes: result[i].likes,
+    } catch (error) {
+        console.error("Error boardHandler:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error",
         });
     }
-
-    if (resultArray.length == 0) {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Result NOT found",
-        });
-    }
-
-    let [total] = (await connectPool.query(
-        "SELECT COUNT(*) AS `count` FROM `board` WHERE `category` = ? AND `status` = 0",
-        [fetchedCategory]
-    )) as mysql.RowDataPacket[];
-
-    if (total.length == 0) {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Result Not found",
-        });
-    }
-
-    let totalValue: number = total[0].count;
-
-    return res.status(200).json({
-        data: {
-            total: totalValue,
-            array: resultArray,
-        },
-        success: true,
-    });
 }
 
 export async function createBoardHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
+    try {
+        const {
+            title,
+            desc,
+            slug,
+        }: { title: string; desc: string; slug: string } = req.body;
 
-    const fetchedTitle: string = fetchedBody.title ?? "";
-    const fetchedDesc: string = fetchedBody.desc ?? "";
-    const fetchedSlug: string = fetchedBody.slug ?? "";
+        if (!title || !desc || !slug) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing required fields: title, description, or slug",
+            });
+        }
 
-    if (fetchedTitle === "" || fetchedDesc === "" || fetchedSlug === "") {
-        return res.status(400).json({
-            errorCode: "",
-            error: "Missing Value",
+        const [result] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT * FROM `board_category` WHERE `title` = ? OR `slug` = ?",
+            [title, slug]
+        );
+
+        if (result.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: "duplicate title or slug",
+            });
+        }
+
+        const [insertResult] = await connectPool.query<mysql.ResultSetHeader>(
+            "INSERT INTO `board_category` (`title`, `description`, `slug`) VALUES (?, ?, ?)",
+            [title, desc, slug]
+        );
+
+        if (insertResult.affectedRows === 0) {
+            return res.status(500).json({
+                success: false,
+                error: "Failed to create board category",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+        });
+    } catch (error) {
+        console.error("Error creating board category:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error",
         });
     }
-
-    const [result] = (await connectPool.query(
-        "SELECT * FROM `board_category` WHERE `title` = ? OR `slug` = ?",
-        [fetchedTitle, fetchedSlug]
-    )) as mysql.RowDataPacket[];
-
-    if (result.length > 0) {
-        return res.status(400).json({
-            errorCode: "",
-            error: "duplicate title or slug",
-        });
-    }
-
-    await connectPool.query(
-        "INSERT INTO `board_category` (`title`, `description`, `slug`) VALUES (?,?,?)",
-        [fetchedTitle, fetchedDesc, fetchedSlug]
-    );
-
-    return res.status(200).json({
-        success: true,
-    });
 }
 
 export async function boardCategoryHandler(req: Request, res: any) {
-    let [result] = (await connectPool.query(
-        "SELECT * FROM `board_category` LIMIT 10"
-    )) as mysql.RowDataPacket[];
+    try {
+        let [result] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT * FROM `board_category` LIMIT 10"
+        );
 
-    if (result.length == 0) {
-        return res.status(404).json({
-            errorCode: "",
-            error: "Result Not Found",
+        if (result.length == 0) {
+            return res.status(404).json({
+                success: false,
+                error: "No categories found",
+            });
+        }
+
+        let data = [];
+
+        for (let i = 0; i < result.length; i++) {
+            let [result2] = (await connectPool.query(
+                "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
+                    "ORDER BY `category_order` DESC LIMIT 10",
+                [result[i].slug]
+            )) as mysql.RowDataPacket[];
+
+            data.push({
+                id: result[i].id,
+                title: result[i].title,
+                slug: result[i].slug,
+                post: result2,
+            });
+        }
+
+        return res.status(200).json({
+            data: data,
+            success: true,
+        });
+    } catch (error) {
+        console.error("Error fetching categories and posts:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Failed to fetch categories and posts due to a server error",
         });
     }
-
-    let data = [];
-
-    for (let i = 0; i < result.length; i++) {
-        let [result2] = (await connectPool.query(
-            "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
-                "ORDER BY `category_order` DESC LIMIT 10",
-            [result[i].slug]
-        )) as mysql.RowDataPacket[];
-
-        data.push({
-            id: result[i].id,
-            title: result[i].title,
-            slug: result[i].slug,
-            post: result2,
-        });
-    }
-
-    return res.status(200).json({
-        data: data,
-        success: true,
-    });
 }
 
-export async function boardInfoHandler(req: any, res: any) {
-    let fetchedCategory: string = req.query.category ?? "";
+export async function boardInfoHandler(req: Request, res: any) {
+    const { category } = req.query;
 
-    let [board] = (await connectPool.query(
-        "SELECT * FROM `board_category` WHERE `slug`=?",
-        [fetchedCategory]
-    )) as mysql.RowDataPacket[];
-
-    if (board.length == 0) {
+    if (!category) {
         return res.status(400).json({
-            errorCode: "",
-            error: "Result Not found",
-        });
-    }
-
-    const boardInfo = board[0];
-
-    return res.status(200).json({
-        data: boardInfo,
-        success: true,
-    });
-}
-
-export async function deletePostHandler(req: Request, res: any) {
-    const fetchedBody: any = req.body;
-
-    const fetchedPostId: string = fetchedBody.postId ?? "";
-
-    if (fetchedPostId == "") {
-        return res.status(400).json({
-            error: "postId is required",
+            success: false,
+            error: "missing category parameter",
         });
     }
 
     try {
-        await connectPool.query(
-            "UPDATE `board` SET `status` = 1 WHERE `id` = ?",
-            [fetchedPostId]
+        let [board] = await connectPool.query<mysql.RowDataPacket[]>(
+            "SELECT * FROM `board_category` WHERE `slug`=?",
+            [category]
         );
 
+        if (board.length == 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Result Not found",
+            });
+        }
+
+        const boardInfo = board[0];
+
         return res.status(200).json({
+            data: boardInfo,
             success: true,
-            message: "Post deleted successfully",
         });
     } catch (error) {
-        console.error("Error deleting post:", error);
+        console.error("Error fetching board info:", error);
         return res.status(500).json({
-            error: "Failed to delete post due to a server error",
+            success: false,
+            error: "Failed to fetch board info due to a server error",
         });
     }
 }
