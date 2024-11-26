@@ -188,7 +188,7 @@ export async function boardCategoryHandler(req: Request, res: any) {
         for (let i = 0; i < result.length; i++) {
             let [result2] = (await connectPool.query(
                 "SELECT * FROM `board` WHERE `category` = ? AND `status` = 0 " +
-                    "ORDER BY `category_order` DESC LIMIT 10",
+                    "ORDER BY `category_order` DESC LIMIT 4",
                 [result[i].slug]
             )) as mysql.RowDataPacket[];
 
