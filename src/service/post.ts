@@ -331,3 +331,68 @@ export async function deletePostHandler(req: Request, res: any) {
         });
     }
 }
+
+export async function getUserRecentPostsHandler(req: Request, res: any) {
+    try {
+        const { userId } = req.params;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                error: "User ID is required",
+            });
+        }
+
+        if (isNaN(limit) || limit <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid limit value",
+            });
+        }
+
+        const [posts] = await connectPool.query<mysql.RowDataPacket[]>(
+            `
+            SELECT 
+                b.id, 
+                b.title, 
+                b.content, 
+                b.written_time, 
+                b.category, 
+                bc.title AS category_title
+            FROM 
+                board b 
+            LEFT JOIN 
+                board_category bc 
+            ON 
+                b.category = bc.slug 
+            WHERE 
+                b.writer_id = ? 
+                AND b.status = 0 
+            ORDER BY 
+                b.written_time DESC 
+            LIMIT ? 
+            `,
+            [userId, limit]
+        );
+
+        if (posts.length === 0) {
+            return res.status(404).json({
+                success: true,
+                data: [],
+                message: "No posts found for this user",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: posts,
+        });
+    } catch (error) {
+        console.error("Error fetching recent posts:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error",
+        });
+    }
+}

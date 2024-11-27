@@ -30,6 +30,7 @@ import {
     addLikeHandler,
     addDisLikeHandler,
     deletePostHandler,
+    getUserRecentPostsHandler,
 } from "./service/post";
 
 dotenv.config();
@@ -61,6 +62,7 @@ app.put("/post", updatePostHandler);
 app.post("/post/like", addLikeHandler);
 app.post("/post/dislike", addDisLikeHandler);
 app.delete("/post/delete", deletePostHandler);
+app.get("/users/:userId/posts", getUserRecentPostsHandler);
 
 app.get("/board", boardHandler);
 app.get("/board/category", boardCategoryHandler);
