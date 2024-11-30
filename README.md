@@ -50,4 +50,4 @@ npm run start
 # 또는
 yarn start
 ```
-5. API서버는 기본적으로 http://localhost:3000에서 실행됩니다.
+5. API서버는 http://localhost:8455에서 실행됩니다.
